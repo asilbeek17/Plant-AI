@@ -3,6 +3,7 @@ import json
 import logging
 import mimetypes
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -87,14 +88,24 @@ def analyze_plant_image(image_path: str, language: str = "en") -> DiagnosisResul
                 },
             },
         ]
-        response = client.chat.completions.create(
-            model=os.getenv(
-                "GROQ_VISION_MODEL",
-                "qwen/qwen3.8-27b",
-            ),
-            messages=[{"role": "user", "content": content}],
-            temperature=0.2,
-        )
+        request = {
+            "model": os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b"),
+            "messages": [{"role": "user", "content": content}],
+            "temperature": 0.2,
+        }
+        response = None
+        for attempt in range(2):
+            try:
+                response = client.chat.completions.create(**request)
+                break
+            except Exception as exc:
+                status_code = getattr(exc, "status_code", None)
+                if attempt == 1 or status_code in {400, 401, 403, 404, 413, 422}:
+                    raise
+                logger.warning("Temporary Groq image-analysis failure; retrying: %s", exc)
+                time.sleep(1)
+        if response is None:
+            raise RuntimeError("The AI provider did not return a diagnosis.")
         result = _parse_json(response.choices[0].message.content)
         return DiagnosisResult(
             plant_name=str(result.get("plant_name", "Unknown plant")),
