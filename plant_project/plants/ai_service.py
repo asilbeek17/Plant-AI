@@ -92,6 +92,7 @@ def analyze_plant_image(image_path: str, language: str = "en") -> DiagnosisResul
             "model": os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b"),
             "messages": [{"role": "user", "content": content}],
             "temperature": 0.2,
+            "max_tokens": 700,
         }
         response = None
         for attempt in range(2):
@@ -158,6 +159,7 @@ def chat_with_groq(diagnosis_history, user_message: str, language: str = "en") -
             model=os.getenv("GROQ_CHAT_MODEL", "openai/gpt-oss-120b"),
             messages=messages,
             temperature=0.4,
+            max_tokens=700,
         )
         return response.choices[0].message.content
     except Exception as exc:
