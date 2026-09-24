@@ -90,7 +90,7 @@ def analyze_plant_image(image_path: str, language: str = "en") -> DiagnosisResul
         response = client.chat.completions.create(
             model=os.getenv(
                 "GROQ_VISION_MODEL",
-                "meta-llama/llama-4-scout-17b-16e-instruct",
+                "qwen/qwen3.8-27b",
             ),
             messages=[{"role": "user", "content": content}],
             temperature=0.2,
@@ -144,7 +144,7 @@ def chat_with_groq(diagnosis_history, user_message: str, language: str = "en") -
             )
         messages.append({"role": "user", "content": user_message})
         response = client.chat.completions.create(
-            model=os.getenv("GROQ_CHAT_MODEL", "llama-3.3-70b-versatile"),
+            model=os.getenv("GROQ_CHAT_MODEL", "openai/gpt-oss-120b"),
             messages=messages,
             temperature=0.4,
         )
