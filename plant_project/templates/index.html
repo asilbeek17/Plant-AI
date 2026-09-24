@@ -1,0 +1,162 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f7faf7">
+    <title>PlantCare AI — Smart plant health</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <link rel="stylesheet" href="{% static 'css/auth.css' %}">
+</head>
+<body>
+    {% csrf_token %}
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <a class="brand" href="#" data-view="dashboard">
+                    <span class="brand-mark">✦</span>
+                    <span>PlantCare <b>AI</b></span>
+                </a>
+                <p class="nav-label">Workspace</p>
+                <nav class="main-nav" aria-label="Main navigation">
+                    <button class="nav-item active" data-view="dashboard"><span class="nav-icon">⌂</span>Dashboard</button>
+                    <button class="nav-item" data-view="history"><span class="nav-icon">◷</span>History <span class="nav-count" id="history-count">0</span></button>
+                </nav>
+                <p class="nav-label nav-label-spaced">Account</p>
+                <nav class="main-nav" aria-label="Account navigation">
+                    <button class="nav-item" data-view="profile"><span class="nav-icon">♙</span>My profile</button>
+                    <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Settings</button>
+                </nav>
+            </div>
+            <div class="sidebar-bottom">
+                <div class="help-card">
+                    <span class="help-icon">?</span>
+                    <strong>Need a little help?</strong>
+                    <p>Learn how to take the best plant photos.</p>
+                    <button type="button" id="tips-button">View photo tips <span>→</span></button>
+                </div>
+                <div class="user-mini">
+                    <div class="avatar" id="sidebar-avatar">GU</div>
+                    <div><strong id="sidebar-name">Guest user</strong><span id="sidebar-subtitle">Sign in to save scans</span></div>
+                    <button type="button" class="more-button" id="auth-button">Sign in</button>
+                </div>
+            </div>
+        </aside>
+
+        <div class="mobile-overlay" id="mobile-overlay"></div>
+        <main class="main-content">
+            <header class="topbar">
+                <button class="menu-button" id="menu-button" aria-label="Open navigation">☰</button>
+                <div class="breadcrumb"><span>Workspace</span><b>/</b><strong id="page-kicker">Dashboard</strong></div>
+                <div class="topbar-actions">
+                    <label class="language-switcher" aria-label="Select interface language">
+                        <span>文</span>
+                        <select id="navbar-language" aria-label="Interface language">
+                            <option value="en">EN</option>
+                            <option value="ru">RU</option>
+                            <option value="uz">UZ</option>
+                        </select>
+                    </label>
+                    <button class="icon-button notification-button" aria-label="Notifications"><span>♧</span><i></i></button>
+                    <button class="top-avatar" id="top-avatar" data-view="profile">GU</button>
+                </div>
+            </header>
+
+            <section class="page-view active" id="dashboard-view">
+                <div class="welcome-row">
+                    <div>
+                        <p class="eyebrow">THURSDAY, SEPTEMBER 24, 2026</p>
+                        <h1>Good morning, <span id="welcome-name">there</span> <span>✦</span></h1>
+                        <p class="subheading">Let’s keep your plants happy and healthy.</p>
+                    </div>
+                    <button class="outline-button" id="new-scan-button"><span>＋</span> New scan</button>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="left-column">
+                        <section class="panel upload-panel" id="upload-panel">
+                            <div class="panel-heading">
+                                <div><span class="section-kicker">PLANT CHECKUP</span><h2>What’s going on with your plant?</h2></div>
+                                <span class="step-pill">01 <i></i> 02</span>
+                            </div>
+                            <div class="drop-zone" id="drop-zone">
+                                <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                                <div class="upload-illustration"><span>⌁</span><i>+</i></div>
+                                <h3>Drop your plant photos here</h3>
+                                <p>or <button type="button" id="browse-button">browse from your device</button></p>
+                                <small>JPG, PNG or WEBP · max 10 MB each · up to 5 photos</small>
+                            </div>
+                            <div class="selected-files" id="selected-files"></div>
+                            <div class="upload-footer">
+                                <span><span class="shield">✓</span> Your photos stay private</span>
+                                <button class="primary-button" id="analyze-button" disabled>Analyze plant <span>→</span></button>
+                            </div>
+                        </section>
+
+                        <section class="panel recent-panel">
+                            <div class="panel-heading compact">
+                                <div><span class="section-kicker">YOUR PLANTS</span><h2>Recent checkups</h2></div>
+                                <button class="text-button" data-view="history">View all <span>→</span></button>
+                            </div>
+                            <div class="recent-list" id="recent-list">
+                                <div class="empty-state small"><span>✿</span><p>Your latest checkups will appear here.</p></div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <aside class="right-column">
+                        <section class="panel insight-panel">
+                            <div class="panel-heading compact">
+                                <div><span class="section-kicker">CURRENT INSIGHT</span><h2 id="result-title">No plant scanned yet</h2></div>
+                                <span class="status-badge neutral" id="result-status">Waiting</span>
+                            </div>
+                            <div class="result-placeholder" id="result-placeholder">
+                                <div class="placeholder-orb">✦</div>
+                                <h3>Your plant’s health report<br>will show up here.</h3>
+                                <p>Upload a clear photo of a leaf or stem to get started.</p>
+                            </div>
+                            <div class="result-content hidden" id="result-content">
+                                <div class="result-image-wrap"><img id="result-image" alt="Latest plant scan"><span id="confidence-label">0% match</span></div>
+                                <div class="result-copy"><p class="result-disease" id="result-disease"></p><p id="result-advice"></p></div>
+                            </div>
+                            <button class="secondary-button full-width hidden" id="view-report-button">View full report <span>→</span></button>
+                        </section>
+
+                        <section class="panel chat-panel">
+                            <div class="chat-heading"><div class="ai-avatar">✦</div><div><h2>Ask PlantCare</h2><p>AI-powered plant advice</p></div><span class="online-dot"></span></div>
+                            <div class="chat-messages" id="chat-box" aria-live="polite"><div class="chat-empty"><span>✦</span><p>Ask me anything about your plant<br>after an analysis.</p></div></div>
+                            <form class="chat-form" id="chat-form"><input type="text" id="chat-input" placeholder="Ask a follow-up question…" disabled><button type="submit" disabled aria-label="Send message">↑</button></form>
+                        </section>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="page-view" id="history-view">
+                <div class="view-heading"><div><p class="eyebrow">YOUR ACTIVITY</p><h1>Checkup history</h1><p class="subheading">A timeline of every plant you have checked.</p></div><button class="primary-button" data-view="dashboard">＋ New scan</button></div>
+                <div class="history-toolbar"><div class="search-box"><span>⌕</span><input id="history-search" type="search" placeholder="Search your checkups…"></div><select id="history-filter"><option value="all">All results</option><option value="healthy">Healthy plants</option><option value="issues">Needs attention</option></select></div>
+                <div class="history-grid" id="history-grid"><div class="empty-state"><span>◷</span><h3>No checkups yet</h3><p>Your completed plant scans will be saved here.</p></div></div>
+            </section>
+
+            <section class="page-view" id="profile-view">
+                <div class="view-heading"><div><p class="eyebrow">ACCOUNT</p><h1>My profile</h1><p class="subheading">Manage your personal information and preferences.</p></div></div>
+                <div class="settings-layout"><section class="panel profile-card"><div class="profile-cover"></div><div class="profile-body"><div class="profile-avatar" id="profile-avatar">GU</div><h2 id="profile-name">Guest user</h2><p class="muted" id="profile-meta">Create an account to keep your plant history.</p><div class="profile-stats"><div><strong id="profile-scan-count">0</strong><span>Scans</span></div><div><strong id="profile-plant-count">0</strong><span>Saved plants</span></div><div><strong id="profile-healthy-count">—</strong><span>Plants healthy</span></div></div><button class="secondary-button full-width" id="profile-auth-button">Sign in to edit profile</button></div></section><section class="panel info-panel"><span class="section-kicker">ABOUT YOU</span><h2>Plant care preferences</h2><div class="info-row"><span>Growing experience</span><strong id="profile-experience">Not set</strong></div><div class="info-row"><span>Favorite plants</span><strong id="profile-favorites">Not set</strong></div><div class="info-row"><span>Location</span><strong id="profile-location">Not set</strong></div></section></div>
+            </section>
+
+            <section class="page-view" id="settings-view">
+                <div class="view-heading"><div><p class="eyebrow">PREFERENCES</p><h1>Settings</h1><p class="subheading">Make PlantCare work the way you like.</p></div></div>
+                <section class="panel preferences-panel"><div class="setting-group"><span class="section-kicker" data-i18n="general">GENERAL</span><label class="setting-row"><span><strong data-i18n="emailUpdates">Email updates</strong><small data-i18n="emailUpdatesHelp">Receive occasional plant care reminders.</small></span><input class="toggle" data-preference="email_updates" type="checkbox" checked></label><label class="setting-row"><span><strong data-i18n="autoSave">Auto-save checkups</strong><small data-i18n="autoSaveHelp">Keep a record of every completed analysis.</small></span><input class="toggle" data-preference="auto_save_checkups" type="checkbox" checked></label></div><div class="setting-group"><span class="section-kicker" data-i18n="appearance">APPEARANCE</span><label class="setting-row"><span><strong data-i18n="compactCards">Use compact cards</strong><small data-i18n="compactCardsHelp">Show more history items on screen.</small></span><input class="toggle" data-preference="compact_cards" type="checkbox"></label><label class="setting-row"><span><strong data-i18n="interfaceLanguage">Interface language</strong><small data-i18n="languageHelp">Choose the language for PlantCare AI.</small></span><select id="preference-language"><option value="en">English</option><option value="ru">Русский</option><option value="uz">O‘zbekcha</option></select></label></div></section>
+            </section>
+        </main>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <div class="modal-backdrop hidden" id="history-chat-modal"><div class="history-chat-modal"><button class="modal-close" id="close-history-chat">×</button><div class="history-chat-header"><img id="history-chat-image" alt=""><div><span class="section-kicker" data-i18n="savedConversation">SAVED CONVERSATION</span><h2 id="history-chat-title"></h2><p id="history-chat-date"></p></div></div><div class="history-chat-report"><span class="status-badge" id="history-chat-status"></span><strong id="history-chat-disease"></strong><p id="history-chat-advice"></p></div><div class="history-chat-messages" id="history-chat-messages"></div></div></div>
+    <div class="modal-backdrop hidden" id="profile-modal"><div class="auth-modal profile-modal"><button class="modal-close" id="close-profile">×</button><span class="section-kicker">YOUR PROFILE</span><h2>Edit profile</h2><p>Update your plant-care preferences and personal details.</p><form id="profile-form"><label>First name<input id="profile-first-name" type="text" maxlength="150"></label><label>Last name<input id="profile-last-name" type="text" maxlength="150"></label><label>Email<input id="profile-email" type="email"></label><label>Growing experience<select id="profile-experience-input"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label><label>Favorite plants<input id="profile-favorites-input" type="text" maxlength="300" placeholder="Tomatoes, herbs, orchids"></label><label>Location<input id="profile-location-input" type="text" maxlength="120" placeholder="City or region"></label><button class="primary-button full-width" type="submit" id="profile-save">Save profile</button></form></div></div>
+    <div class="modal-backdrop hidden" id="auth-modal"><div class="auth-modal"><button class="modal-close" id="close-auth">×</button><span class="section-kicker">PLANTCARE ACCOUNT</span><h2 id="auth-title">Welcome back</h2><p id="auth-description">Sign in to save your scans and access them anywhere.</p><form id="auth-form"><label class="auth-extra hidden">First name<input id="auth-first-name" type="text" autocomplete="given-name"></label><label>Username<input id="auth-username" type="text" autocomplete="username" required></label><label class="auth-extra hidden">Email<input id="auth-email" type="email" autocomplete="email"></label><label>Password<input id="auth-password" type="password" autocomplete="current-password" minlength="8" required></label><button class="primary-button full-width" id="auth-submit" type="submit">Sign in</button></form><button class="auth-switch" id="auth-switch" type="button">Need an account? Create one</button></div></div>
+    <div class="modal-backdrop hidden" id="tips-modal"><div class="tips-modal"><button class="modal-close" id="close-tips">×</button><span class="section-kicker">PHOTO TIPS</span><h2>Get a better diagnosis</h2><p>Clear, well-lit photos help PlantCare AI spot issues more accurately.</p><div class="tips-list"><div><b>01</b><span>Photograph the affected leaf up close.</span></div><div><b>02</b><span>Use natural light and avoid harsh shadows.</span></div><div><b>03</b><span>Include the whole plant when possible.</span></div></div></div></div>
+    <script src="{% static 'js/app.js' %}"></script>
+</body>
+</html>

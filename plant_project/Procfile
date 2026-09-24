@@ -1,0 +1,1 @@
+web: gunicorn plantcare_project.wsgi:application

@@ -1,0 +1,141 @@
+import base64
+import json
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from groq import Groq
+
+
+@dataclass
+class DiagnosisResult:
+    plant_name: str
+    disease: str
+    confidence: float
+    treatment: str
+    prevention: str
+    provider: str
+
+
+def _demo_result() -> DiagnosisResult:
+    return DiagnosisResult(
+        plant_name="Sample Plant",
+        disease="Early Blight (demo result)",
+        confidence=0.76,
+        treatment=(
+            "Remove affected leaves, improve airflow, and avoid watering the foliage. "
+            "A locally approved copper-based fungicide may help; follow its label."
+        ),
+        prevention=(
+            "Water at soil level, sanitize pruning tools, and rotate susceptible crops."
+        ),
+        provider="demo",
+    )
+
+
+def _encode_image(image_path: str) -> str:
+    with Path(image_path).open("rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+
+def _parse_json(text: str) -> dict:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+    return json.loads(cleaned)
+
+
+def _language_name(language: str) -> str:
+    return {"en": "English", "ru": "Russian", "uz": "Uzbek"}.get(language, "English")
+
+
+def analyze_plant_image(image_path: str, language: str = "en") -> DiagnosisResult:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key or api_key == "your_actual_groq_api_key_here":
+        return _demo_result()
+
+    try:
+        client = Groq(api_key=api_key)
+        content = [
+            {
+                "type": "text",
+                "text": (
+                    f"You are a careful plant pathologist. Analyze this image and return your "
+                    f"natural-language fields in {_language_name(language)}. Return "
+                    "ONLY valid JSON with these keys: plant_name (string), disease "
+                    "(string, use Healthy if appropriate), confidence (number 0 to 1), "
+                    "treatment (string), prevention (string). Be warm and practical, use "
+                    "short paragraphs and at most a few relevant plant-care emojis. "
+                    "Do not invent certainty. "
+                    "For pesticides, recommend only following the product label and local "
+                    "agricultural guidance."
+                ),
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{_encode_image(image_path)}"
+                },
+            },
+        ]
+        response = client.chat.completions.create(
+            model=os.getenv("GROQ_VISION_MODEL", "llama-3.2-11b-vision-preview"),
+            messages=[{"role": "user", "content": content}],
+            temperature=0.2,
+        )
+        result = _parse_json(response.choices[0].message.content)
+        return DiagnosisResult(
+            plant_name=str(result.get("plant_name", "Unknown plant")),
+            disease=str(result.get("disease", "Analysis inconclusive")),
+            confidence=max(0.0, min(1.0, float(result.get("confidence", 0.0)))),
+            treatment=str(result.get("treatment", "")),
+            prevention=str(result.get("prevention", "")),
+            provider="groq",
+        )
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("The AI returned an invalid diagnosis response.") from exc
+    except Exception as exc:
+        raise RuntimeError("The AI provider could not analyze this image.") from exc
+
+
+def chat_with_groq(diagnosis_history, user_message: str, language: str = "en") -> str:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key or api_key == "your_actual_groq_api_key_here":
+        return (
+            "Demo mode is active. Add GROQ_API_KEY to your .env file to enable "
+            "personalized AI follow-up answers."
+        )
+
+    try:
+        client = Groq(api_key=api_key)
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    f"You are PlantCare AI, a cautious agricultural assistant. Respond in "
+                    f"{_language_name(language)}. Give "
+                    "friendly human-style practical advice with short paragraphs, clear "
+                    "line breaks, and at most a few relevant emojis. Explain uncertainty, "
+                    "and never present "
+                    "a pesticide as safe without following its label and local rules."
+                ),
+            }
+        ]
+        for message in diagnosis_history:
+            messages.append(
+                {
+                    "role": "assistant" if message.sender == "ai" else "user",
+                    "content": message.message,
+                }
+            )
+        messages.append({"role": "user", "content": user_message})
+        response = client.chat.completions.create(
+            model=os.getenv("GROQ_CHAT_MODEL", "llama-3.3-70b-versatile"),
+            messages=messages,
+            temperature=0.4,
+        )
+        return response.choices[0].message.content
+    except Exception as exc:
+        raise RuntimeError("The AI chat provider is temporarily unavailable.") from exc
