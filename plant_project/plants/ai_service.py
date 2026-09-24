@@ -1,10 +1,14 @@
 import base64
 import json
+import logging
+import mimetypes
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from groq import Groq
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -57,6 +61,9 @@ def analyze_plant_image(image_path: str, language: str = "en") -> DiagnosisResul
         return _demo_result()
 
     try:
+        mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+        if mime_type not in {"image/jpeg", "image/png", "image/webp"}:
+            mime_type = "image/jpeg"
         client = Groq(api_key=api_key)
         content = [
             {
@@ -76,12 +83,15 @@ def analyze_plant_image(image_path: str, language: str = "en") -> DiagnosisResul
             {
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:image/jpeg;base64,{_encode_image(image_path)}"
+                    "url": f"data:{mime_type};base64,{_encode_image(image_path)}"
                 },
             },
         ]
         response = client.chat.completions.create(
-            model=os.getenv("GROQ_VISION_MODEL", "llama-3.2-11b-vision-preview"),
+            model=os.getenv(
+                "GROQ_VISION_MODEL",
+                "meta-llama/llama-4-scout-17b-16e-instruct",
+            ),
             messages=[{"role": "user", "content": content}],
             temperature=0.2,
         )
@@ -95,8 +105,10 @@ def analyze_plant_image(image_path: str, language: str = "en") -> DiagnosisResul
             provider="groq",
         )
     except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        logger.exception("Groq returned an invalid plant diagnosis response: %s", exc)
         raise RuntimeError("The AI returned an invalid diagnosis response.") from exc
     except Exception as exc:
+        logger.exception("Groq plant image analysis failed: %s", exc)
         raise RuntimeError("The AI provider could not analyze this image.") from exc
 
 
