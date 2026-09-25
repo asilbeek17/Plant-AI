@@ -88,8 +88,8 @@ class DiagnosisSerializer(serializers.ModelSerializer):
 
 class UserPreferenceSerializer(serializers.ModelSerializer):
     def validate_language(self, value):
-        if value not in {"en", "ru", "uz"}:
-            raise serializers.ValidationError("Language must be English, Russian, or Uzbek.")
+        if value not in {"en", "ru", "uz", "ko"}:
+            raise serializers.ValidationError("Language must be English, Russian, Uzbek, or Korean.")
         return value
 
     class Meta:

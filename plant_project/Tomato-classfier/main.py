@@ -2,9 +2,6 @@ import os
 import sys
 from predict import get_prediction
 
-# ============================================================
-# LOCAL AGRONOMY KNOWLEDGE BASE
-# ============================================================
 DISEASE_KNOWLEDGE_BASE = {
     "Tomato Bacterial Spot": {
         "summary": "Bacterial Spot is caused by Xanthomonas species, producing small, water-soaked dark lesions on leaves and fruit, leading to heavy leaf drop in warm, wet conditions.",
@@ -152,7 +149,7 @@ def generate_local_ai_report(disease_name: str, confidence: float) -> str:
 # EXECUTION PIPELINE
 # ============================================================
 
-image_path = "test/septoria.JPG"
+image_path = sys.argv[1] if len(sys.argv) > 1 else "test/early_blight.JPG"
 
 if not os.path.exists(image_path):
     print(f"Error: Target image '{image_path}' not found.")

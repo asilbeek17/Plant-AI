@@ -1,0 +1,55 @@
+{
+  "updated": "2026-09-25",
+  "disclaimer": "Demo content only. These are commonly monitored/reporting examples for product demonstration, not verified country-wide rankings or live surveillance.",
+  "sources": [
+    {
+      "name": "FAO Plant Health",
+      "url": "https://www.fao.org/plant-health-2020/en/"
+    },
+    {
+      "name": "EPPO Alert List",
+      "url": "https://www.eppo.int/ACTIVITIES/plant_quarantine/alert_list"
+    },
+    {
+      "name": "IPPC implementation and capacity development",
+      "url": "https://www.ippc.int/en/about/core-activities/capacity-development/"
+    }
+  ],
+  "items": [
+    {
+      "country": "South Korea",
+      "country_code": "KR",
+      "disease": "Late blight",
+      "signal": "A commonly monitored tomato disease example in cool, wet production periods.",
+      "action": "Improve airflow, avoid wet foliage, and inspect lower leaves frequently."
+    },
+    {
+      "country": "Uzbekistan",
+      "country_code": "UZ",
+      "disease": "Early blight",
+      "signal": "A commonly monitored tomato leaf-spot disease example in warm production conditions.",
+      "action": "Remove spotted leaves, mulch soil, and water at the base."
+    },
+    {
+      "country": "Kyrgyzstan",
+      "country_code": "KG",
+      "disease": "Septoria leaf spot",
+      "signal": "A commonly monitored leaf-spot disease example when leaf wetness and dense canopies occur.",
+      "action": "Keep foliage dry, space plants well, and sanitize tools."
+    },
+    {
+      "country": "Kazakhstan",
+      "country_code": "KZ",
+      "disease": "Tomato leaf mold",
+      "signal": "A commonly monitored protected-crop disease example when humidity remains high.",
+      "action": "Ventilate covered crops and remove affected leaves early."
+    },
+    {
+      "country": "Tajikistan",
+      "country_code": "TJ",
+      "disease": "Bacterial spot",
+      "signal": "A commonly monitored bacterial-disease example where warm weather and splashing water occur.",
+      "action": "Use clean transplants, avoid overhead watering, and disinfect tools."
+    }
+  ]
+}

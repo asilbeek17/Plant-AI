@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import login, logout
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -9,7 +11,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from PIL import Image, UnidentifiedImageError
 
-from .ai_service import analyze_plant_image, chat_with_groq
+logger = logging.getLogger(__name__)
+
+from .ai_service import (
+    LOCALIZED_DISEASE_NAMES,
+    DISEASE_KNOWLEDGE_BASE,
+    _disease_report,
+    _localized_plant_name,
+    analyze_plant_image,
+)
 from .models import ChatMessage, Diagnosis, Plant, UserPreference
 from .serializers import (
     DiagnosisSerializer,
@@ -142,10 +152,12 @@ class PlantAnalyzeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        language = request.data.get("language", "en")
-        if request.user.is_authenticated:
+        requested_language = request.data.get("language")
+        if requested_language in {"en", "ru", "uz", "ko"}:
+            language = requested_language
+        elif request.user.is_authenticated:
             language = UserPreference.objects.get_or_create(user=request.user)[0].language
-        if language not in {"en", "ru", "uz"}:
+        else:
             language = "en"
         plant = None
         if request.user.is_authenticated and request.data.get("plant_id"):
@@ -185,9 +197,19 @@ class PlantAnalyzeView(APIView):
             diagnosis.status = "failed"
             diagnosis.error_message = str(exc)
             diagnosis.save(update_fields=("status", "error_message", "updated_at"))
+            logger.exception("Plant diagnosis failed for diagnosis_id=%s", diagnosis.id)
             return Response(
                 {"error": diagnosis.error_message, "diagnosis_id": diagnosis.id},
                 status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except Exception as exc:
+            diagnosis.status = "failed"
+            diagnosis.error_message = f"Unexpected server error while analyzing image: {exc}"
+            diagnosis.save(update_fields=("status", "error_message", "updated_at"))
+            logger.exception("Unexpected error while analyzing diagnosis_id=%s", diagnosis.id)
+            return Response(
+                {"error": diagnosis.error_message, "diagnosis_id": diagnosis.id},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         return Response(DiagnosisSerializer(diagnosis, context={"request": request}).data,
                         status=status.HTTP_201_CREATED)
@@ -205,11 +227,26 @@ class HistoryListView(APIView):
             queryset = queryset.filter(
                 owner__isnull=True, session_key=request.session.session_key or ""
             )
-        return Response(
-            DiagnosisSerializer(
-                queryset[:100], many=True, context={"request": request}
-            ).data
-        )
+        language = request.query_params.get("language", "en")
+        if language not in {"en", "ru", "uz", "ko"}:
+            language = "en"
+        records = []
+        for diagnosis in queryset[:100]:
+            data = DiagnosisSerializer(diagnosis, context={"request": request}).data
+            disease = diagnosis.disease_detected
+            reverse_names = {
+                localized: canonical
+                for translations in LOCALIZED_DISEASE_NAMES.values()
+                for canonical, localized in translations.items()
+            }
+            canonical_disease = reverse_names.get(disease, disease)
+            if canonical_disease in {"Healthy", *DISEASE_KNOWLEDGE_BASE}:
+                data["plant_name"] = _localized_plant_name(language)
+                data["disease_detected"] = LOCALIZED_DISEASE_NAMES.get(language, {}).get(
+                    canonical_disease, canonical_disease
+                )
+            records.append(data)
+        return Response(records)
 
 
 class DiagnosisDetailView(APIView):
@@ -219,7 +256,46 @@ class DiagnosisDetailView(APIView):
         diagnosis = get_object_or_404(
             Diagnosis.objects.select_related("plant"), id=diagnosis_id, owner=request.user
         )
-        return Response(DiagnosisSerializer(diagnosis, context={"request": request}).data)
+        data = DiagnosisSerializer(diagnosis, context={"request": request}).data
+        language = request.query_params.get("language", "en")
+        if language not in {"en", "ru", "uz", "ko"}:
+            language = "en"
+        disease = diagnosis.disease_detected
+        reverse_names = {
+            localized: canonical
+            for translations in LOCALIZED_DISEASE_NAMES.values()
+            for canonical, localized in translations.items()
+        }
+        canonical_disease = reverse_names.get(disease, disease)
+        if canonical_disease in {"Healthy", *DISEASE_KNOWLEDGE_BASE}:
+            summary, treatment, prevention = _disease_report(canonical_disease, language)
+            data["plant_name"] = _localized_plant_name(language)
+            data["disease_detected"] = LOCALIZED_DISEASE_NAMES.get(language, {}).get(
+                canonical_disease, canonical_disease
+            )
+            data["treatment_advice"] = f"{summary}\n\nTreatment:\n{treatment}"
+            data["prevention_advice"] = prevention
+            labels = {
+                "en": ("Plant", "Status", "Treatment strategy", "Prevention"),
+                "ru": ("Растение", "Статус", "Лечение", "Профилактика"),
+                "uz": ("O‘simlik", "Holat", "Davolash", "Oldini olish"),
+                "ko": ("식물", "상태", "치료 방법", "예방"),
+            }
+            plant_label, status_label, treatment_label, prevention_label = labels[language]
+            data["messages"] = [
+                {
+                    "id": f"localized-{diagnosis.id}",
+                    "sender": "ai",
+                    "message": (
+                        f"{plant_label}: {data['plant_name']}\n"
+                        f"{status_label}: {data['disease_detected']}\n\n"
+                        f"{treatment_label}:\n{data['treatment_advice']}\n\n"
+                        f"{prevention_label}:\n{data['prevention_advice']}"
+                    ),
+                    "timestamp": diagnosis.updated_at,
+                }
+            ]
+        return Response(data)
 
 
 class ChatView(APIView):
@@ -228,38 +304,10 @@ class ChatView(APIView):
     parser_classes = (JSONParser,)
 
     def post(self, request):
-        diagnosis_id = request.data.get("diagnosis_id")
-        user_message = str(request.data.get("message", "")).strip()
-        if not diagnosis_id or not user_message:
-            return Response(
-                {"error": "diagnosis_id and message are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if len(user_message) > 4000:
-            return Response(
-                {"error": "Messages must be 4000 characters or fewer."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        language = request.data.get("language", "en")
-        if request.user.is_authenticated:
-            language = UserPreference.objects.get_or_create(user=request.user)[0].language
-        if language not in {"en", "ru", "uz"}:
-            language = "en"
-        queryset = Diagnosis.objects.all()
-        if request.user.is_authenticated:
-            queryset = queryset.filter(owner=request.user)
-        else:
-            queryset = queryset.filter(
-                owner__isnull=True, session_key=request.session.session_key or ""
-            )
-        diagnosis = get_object_or_404(queryset, id=diagnosis_id)
-        ChatMessage.objects.create(diagnosis=diagnosis, sender="user", message=user_message)
-        try:
-            reply = chat_with_groq(diagnosis.messages.all(), user_message, language)
-        except RuntimeError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
-        ChatMessage.objects.create(diagnosis=diagnosis, sender="ai", message=reply)
-        return Response({"reply": reply})
+        return Response(
+            {"error": "Follow-up AI chat is disabled. Diagnosis uses only the local tomato model."},
+            status=status.HTTP_410_GONE,
+        )
 
 
 class PreferencesView(APIView):
